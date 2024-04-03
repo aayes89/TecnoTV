@@ -26,7 +26,7 @@ import javax.swing.JOptionPane;
 
 /**
  *
- * @author localadmin
+ * @author Slam
  */
 public class jRokuV extends javax.swing.JFrame {
 
