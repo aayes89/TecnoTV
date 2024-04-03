@@ -8,5 +8,5 @@ Sends channel to my Roku device.
 * Compile the program and run it
 * Click on the jLabel with the representative image and enjoy.
 # Achievements
-* It even works on Android thanks to JRE4Android
+* It even works on Android thanks to JRE4Android (Tested on Samsung Galaxy S10 Plus and Samsung Galaxy S7 Edge)
 ![photo1712178066](https://github.com/aayes89/TecnoTV/assets/72238104/cd6e07a1-ba43-4194-bba3-c47529ba54a6)
