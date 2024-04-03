@@ -22,6 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 
 /**
  *
@@ -39,12 +40,14 @@ public class jRokuV extends javax.swing.JFrame {
         listas = new ArrayList<>();
         jcbLista.setVisible(false);
         List<String> listLoaded = loadList();
-        if (listLoaded != null && !sonIguales(listLoaded)) {
-            System.out.println("Cargando listas previas");
+        if (listLoaded != null) {
+            System.out.println("Listas previas cargadas");
             listas = listLoaded;
-            jbCargarCh.setEnabled(true);
+        } else {
+            cargarCanales();
         }
-        
+        jbCargarCh.setEnabled(true);
+        System.out.println(" Now List: " + listas.size());
         loadImages();
     }
 
@@ -298,7 +301,7 @@ public class jRokuV extends javax.swing.JFrame {
     }// </editor-fold>                        
 
     private void jbCargarChActionPerformed(java.awt.event.ActionEvent evt) {                                           
-        // TODO add your handling code here:ç
+        // TODO add your handling code here:
         cargarCanales();
     }                                          
 
@@ -309,8 +312,7 @@ public class jRokuV extends javax.swing.JFrame {
 
     private void jlbCanal6MouseClicked(java.awt.event.MouseEvent evt) {                                       
         // TODO add your handling code here:
-        sendToRoku(Configs.canal6);
-
+        sendToRoku("Canal 6");
     }                                      
 
     private void jlbHistMouseClicked(java.awt.event.MouseEvent evt) {                                     
@@ -370,15 +372,11 @@ public class jRokuV extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(jRokuV.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(jRokuV.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(jRokuV.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(jRokuV.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
+
         //</editor-fold>
 
         /* Create and display the form */
@@ -408,28 +406,28 @@ public class jRokuV extends javax.swing.JFrame {
     private javax.swing.JLabel jlbTnt;
     private javax.swing.JLabel jlbUniversal;
     // End of variables declaration                   
+
     private void cargarCanales() {
+        // Valida que la lista pre-existente sea diferente
+        /*List<String> load = loadList();
+        if (load != null) {
+            System.out.println("Usando lista previa");
+            listas = load;
+        } else {
+            System.out.println("Usando lista reciente");*/
         try {
             URL url = new URL(Configs.mainUrl);
             URLConnection connection = url.openConnection();
             try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
                 String line;
                 while ((line = br.readLine()) != null) {
-                    if (line.contains("m3u")) {
-                        //System.out.println("Patron reconocido en: " + line);
+                    if (line.contains(".m3u")) {
+                        System.out.println("Patron reconocido en: " + line);
                         downloadM3U(line, listas);
                     }
                 }
             }
             if (!listas.isEmpty()) {
-                /*System.out.println("Resultados: \nElije la que deseas enviar.");
-                int opc = 1;
-                for (String lURL : listas) {
-                    System.out.println(opc + " - " + lURL);
-                    opc++;
-                }*/
-                // Carga listas en el ComboBox
-                //cargarComboBox(listas);
                 // Salva el listado en un fichero    
                 saveList();
             }
@@ -484,11 +482,11 @@ public class jRokuV extends javax.swing.JFrame {
                 while ((line = br.readLine()) != null) {
                     // jlbCinemax, jlbDiscovery, jlbEurofilms, jlbHist, jlbNatgeo, jlbParamount, jlbTnt, jlbUniversal
                     if (line.contains("History Channel") || line.contains("Discovery Channel") || line.contains("Film & Arts") || line.contains("National Geographic") || line.contains("Paramount HD") || line.contains("TNT HD") || line.contains("Studio Universal")) {
-                        System.out.println(line);
+                        //System.out.println(line);
                         line = br.readLine();
                         if (line.indexOf("zonafilm") == -1) {
                             result.add(line);
-                            System.out.println(line);
+                            //System.out.println(line);
                         }
                     }
                 }
@@ -515,32 +513,42 @@ public class jRokuV extends javax.swing.JFrame {
     }
 
     private void saveList() {
-        FileOutputStream fos = null;
+        File dbFile = new File("lists.db");
         try {
-            fos = new FileOutputStream("lists.db");
-            for (String value : listas) {
-                fos.write(value.getBytes());
-                fos.write("\n".getBytes());
+            if(eliminarFichero(dbFile))
+                return;
+            System.out.println("Guardando lista en: " + dbFile.getAbsolutePath());
+            try (FileOutputStream fos = new FileOutputStream(dbFile)) {
+                for (String value : listas) {
+                    fos.write(value.getBytes());
+                    fos.write("\n".getBytes());
+                }
+                System.out.println("Lista guardada exitosamente.");
+                JOptionPane.showMessageDialog(rootPane, "Lista generada y guardada exitosamente", "Información", JOptionPane.INFORMATION_MESSAGE);
             }
-            fos.close();
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(jRokuV.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
-            Logger.getLogger(jRokuV.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                fos.close();
-            } catch (IOException ex) {
-                Logger.getLogger(jRokuV.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            System.err.println("Error al guardar la lista: " + ex.getMessage());
         }
+    }
+    
+    public boolean esListaVieja(File dbFile){
+        long timeNow = System.currentTimeMillis();
+        long modifiedFile = dbFile.lastModified();
+        if((timeNow - modifiedFile) > (5*60*1000)) // 5 min
+            return true;
+        return false;
     }
 
     private List loadList() {
         try {
-            File file = new File("lists.db");
-            if (file.exists()) {
-                FileInputStream fis = new FileInputStream(file);
+            File dbFile = new File("lists.db");
+            if (dbFile.exists()) {
+                System.out.println("DB File found on: " + dbFile.getAbsolutePath());
+                if(esListaVieja(dbFile)){
+                    System.out.println("La lista encontrada ya tiene cierto tiempo de creada, se procede a actualizar");
+                    eliminarFichero(dbFile);
+                }
+                FileInputStream fis = new FileInputStream(dbFile);
                 List<String> list = new ArrayList<>();
                 int val;
                 String tmpVal = "";
@@ -553,11 +561,13 @@ public class jRokuV extends javax.swing.JFrame {
                     }
                 }
                 return list;
+            } else {
+                System.out.println("No DB file on: " + dbFile.getAbsolutePath());
             }
         } catch (FileNotFoundException ex) {
-            Logger.getLogger(jRokuV.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println("FileNotFoundException: " + ex.getMessage());
         } catch (IOException ex) {
-            Logger.getLogger(jRokuV.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println("IOException: " + ex.getMessage());
         }
         return null;
     }
@@ -565,7 +575,10 @@ public class jRokuV extends javax.swing.JFrame {
     private String findChannel(String channel) {
         String result = "";
         for (String chan : listas) {
-            if (channel.equalsIgnoreCase("History") && chan.indexOf("a056&") != -1) {
+            if (channel.equalsIgnoreCase("Canal 6")) {
+                result = Configs.canal6;
+                break;
+            } else if (channel.equalsIgnoreCase("History") && chan.indexOf("a056&") != -1) {
                 result = chan;
                 break;
             } else if (channel.equalsIgnoreCase("Cinemax") && chan.indexOf("a056&") != -1) {
@@ -595,17 +608,28 @@ public class jRokuV extends javax.swing.JFrame {
     }
 
     private void sendToRoku(String chan) {
-        String param1 = ""; //jComboBox1.getItemAt(jComboBox1.getSelectedIndex());
-        if (!chan.equalsIgnoreCase(Configs.canal6)) {
-            param1 = findChannel(chan);
-        }
+        //jComboBox1.getItemAt(jComboBox1.getSelectedIndex());
         try {
             StringBuilder sb = new StringBuilder();
-            sb.append(Configs.urlRoku).append(Configs.param).append(URLEncoder.encode(param1, "utf-8")).append(Configs.param2);
+            sb.append(Configs.urlRoku).append(Configs.param).append(URLEncoder.encode(findChannel(chan), "utf-8")).append(Configs.param2);
             doPOST(sb.toString());
         } catch (UnsupportedEncodingException ex) {
             System.out.println("UnsupportedEncodingException: " + ex.getMessage());
         }
+    }
+
+    private boolean eliminarFichero(File dbFile) {
+        if (dbFile.exists()) {
+            if (dbFile.delete()) {
+                System.out.println("Archivo existente eliminado: " + dbFile.getAbsolutePath());
+                return true;
+            } else {
+                System.err.println("No se pudo eliminar el archivo existente: " + dbFile.getAbsolutePath());
+                System.out.println("Revise los permisos");
+                JOptionPane.showMessageDialog(rootPane, "No se pudo eliminar el archivo existente: " + dbFile.getAbsolutePath() + "\nRevise los permisos", "Información", JOptionPane.WARNING_MESSAGE);
+            }
+        }
+        return false;
     }
 
 }
