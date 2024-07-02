@@ -1,6 +1,8 @@
 package tecnotvlf;
 
 import java.awt.Image;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -15,44 +17,65 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 
 /**
  *
- * @author Slam
+ * @author localadmin
  */
-public class jRokuV extends javax.swing.JFrame {
+public class jRokuV extends javax.swing.JFrame implements KeyListener {
 
     static List<String> listas;
+    int count;
+    boolean debug;
+    int selected;
+    String rokuUrl = Configs.urlRoku;
+    DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
 
     /**
      * Creates new form jRokuV
      */
     public jRokuV() {
         initComponents();
+        setFocusable(true);
+        addKeyListener(this);
+        count = 0;
+        debug = true;
         listas = new ArrayList<>();
-        jcbLista.setVisible(false);
+        jcbLista.setVisible(true);
         List<String> listLoaded = loadList();
         if (listLoaded != null) {
             System.out.println("Listas previas cargadas");
             listas = listLoaded;
         } else {
-            cargarCanales();
+            selected = JOptionPane.showOptionDialog(rootPane, "Selecciona el tipo de lista:", "Roku-Channel", JOptionPane.YES_OPTION, JOptionPane.QUESTION_MESSAGE, null, Configs.listasCanales, Configs.listasCanales[0]);
+            System.out.println("Selected: " + Configs.listasCanales[selected] + " Index: " + selected);
+            cargarCanales(selected);
         }
         jbCargarCh.setEnabled(true);
         System.out.println(" Now List: " + listas.size());
         loadImages();
     }
 
+    public void showSecretConf() {
+        String nIP = JOptionPane.showInputDialog(rootPane, "Insert the Roku IP", "Roku IP", JOptionPane.INFORMATION_MESSAGE);
+        //http://192.168.1.27:8060
+        String eIP = "http://" + extractIP(nIP) + ":8060";
+        System.out.println("New IP added: "+eIP);
+        rokuUrl = eIP;
+    }
+
     private void loadImages() {
-        JLabel[] labels = {jlbCanal6, jlbCinemax, jlbDiscovery, jlbEurofilms, jlbHist, jlbNatgeo, jlbParamount, jlbTnt, jlbUniversal};
+        JLabel[] labels = {jlbCanal6, jlbCinemax1, jlbDiscovery, jlbEurofilms, jlbHist, jlbNatgeo, jlbParamount, jlbTnt, jlbUniversal, jlbPremier2, jlbRT};
         ImageIcon[] icons = {
             new ImageIcon(jRokuV.class.getResource("/imgs/canal6.png")),
             new ImageIcon(jRokuV.class.getResource("/imgs/cinemax.png")),
@@ -62,14 +85,16 @@ public class jRokuV extends javax.swing.JFrame {
             new ImageIcon(jRokuV.class.getResource("/imgs/natgeo.jpeg")),
             new ImageIcon(jRokuV.class.getResource("/imgs/paramount.png")),
             new ImageIcon(jRokuV.class.getResource("/imgs/tntusa.png")),
-            new ImageIcon(jRokuV.class.getResource("/imgs/universal.png"))
-        };
+            new ImageIcon(jRokuV.class.getResource("/imgs/universal.png")),
+            new ImageIcon(jRokuV.class.getResource("/imgs/Premier2.png")),
+            new ImageIcon(jRokuV.class.getResource("/imgs/rt.png"))};
         // Configurar el JLabel con la imagen escalada
         for (int i = 0; i < labels.length; i++) {
             Image image = icons[i].getImage();
             Image scaledImage = image.getScaledInstance(labels[i].getWidth(), labels[i].getHeight(), Image.SCALE_SMOOTH);
             labels[i].setIcon(new ImageIcon(scaledImage));
         }
+
     }
 
     /**
@@ -91,26 +116,27 @@ public class jRokuV extends javax.swing.JFrame {
         jPanel2 = new javax.swing.JPanel();
         jlbCanal6 = new javax.swing.JLabel();
         jlbHist = new javax.swing.JLabel();
-        jlbCinemax = new javax.swing.JLabel();
+        jlbPremier2 = new javax.swing.JLabel();
         jlbDiscovery = new javax.swing.JLabel();
         jlbNatgeo = new javax.swing.JLabel();
         jlbParamount = new javax.swing.JLabel();
         jlbUniversal = new javax.swing.JLabel();
         jlbTnt = new javax.swing.JLabel();
         jlbEurofilms = new javax.swing.JLabel();
+        jlbCinemax1 = new javax.swing.JLabel();
+        jlbRT = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imgs/roku-logo.png"))); // NOI18N
 
-        jbCargarCh.setText("Cargar Canales");
+        jbCargarCh.setText("Actualizar Canales");
         jbCargarCh.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jbCargarChActionPerformed(evt);
             }
         });
 
-        jcbLista.setEnabled(false);
         jcbLista.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jcbListaActionPerformed(evt);
@@ -172,10 +198,10 @@ public class jRokuV extends javax.swing.JFrame {
             }
         });
 
-        jlbCinemax.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imgs/canal6.png"))); // NOI18N
-        jlbCinemax.addMouseListener(new java.awt.event.MouseAdapter() {
+        jlbPremier2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imgs/canal6.png"))); // NOI18N
+        jlbPremier2.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                jlbCinemaxMouseClicked(evt);
+                jlbPremier2MouseClicked(evt);
             }
         });
 
@@ -221,6 +247,21 @@ public class jRokuV extends javax.swing.JFrame {
             }
         });
 
+        jlbCinemax1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imgs/canal6.png"))); // NOI18N
+        jlbCinemax1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jlbCinemax1MouseClicked(evt);
+            }
+        });
+
+        jlbRT.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jlbRT.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imgs/canal6.png"))); // NOI18N
+        jlbRT.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jlbRTMouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
@@ -233,20 +274,26 @@ public class jRokuV extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jlbHist)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jlbCinemax))
-                    .addComponent(jlbDiscovery)
+                        .addComponent(jlbCinemax1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jlbRT))
                     .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGap(295, 295, 295)
-                        .addComponent(jlbNatgeo))
+                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jlbDiscovery)
+                            .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addGap(295, 295, 295)
+                                .addComponent(jlbNatgeo)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jlbParamount)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jlbPremier2))
                     .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGap(590, 590, 590)
-                        .addComponent(jlbParamount))
-                    .addComponent(jlbUniversal)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGap(295, 295, 295)
-                        .addComponent(jlbTnt))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGap(590, 590, 590)
+                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jlbUniversal)
+                            .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addGap(295, 295, 295)
+                                .addComponent(jlbTnt)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jlbEurofilms)))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
@@ -254,12 +301,16 @@ public class jRokuV extends javax.swing.JFrame {
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(jlbCinemax)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jlbParamount)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jlbCinemax1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jlbRT, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(6, 6, 6)
+                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jlbParamount)
+                            .addComponent(jlbPremier2))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jlbEurofilms))
                     .addGroup(jPanel2Layout.createSequentialGroup()
                         .addComponent(jlbHist)
@@ -273,7 +324,7 @@ public class jRokuV extends javax.swing.JFrame {
                         .addComponent(jlbDiscovery)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jlbUniversal)))
-                .addContainerGap(8, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -302,12 +353,24 @@ public class jRokuV extends javax.swing.JFrame {
 
     private void jbCargarChActionPerformed(java.awt.event.ActionEvent evt) {                                           
         // TODO add your handling code here:
-        cargarCanales();
+        File dbFile = new File("lists.db");
+        eliminarFichero(dbFile);
+        listas.clear();
+        dcbm.removeAllElements();
+        selected = JOptionPane.showOptionDialog(rootPane, "Selecciona el tipo de lista:", "Roku-Channel", JOptionPane.YES_OPTION, JOptionPane.QUESTION_MESSAGE, null, Configs.listasCanales, Configs.listasCanales[0]);
+        System.out.println("Selected: " + Configs.listasCanales[selected] + " Index: " + selected);
+        cargarCanales(selected);
     }                                          
 
     private void jcbListaActionPerformed(java.awt.event.ActionEvent evt) {                                         
         // TODO add your handling code here:
-
+        try {
+            String jcbUrl = jcbLista.getItemAt(jcbLista.getSelectedIndex());
+            String extracted = jcbUrl.substring(jcbUrl.indexOf("- ") + 2);
+            sendToRoku(extracted);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }                                        
 
     private void jlbCanal6MouseClicked(java.awt.event.MouseEvent evt) {                                       
@@ -318,13 +381,12 @@ public class jRokuV extends javax.swing.JFrame {
     private void jlbHistMouseClicked(java.awt.event.MouseEvent evt) {                                     
         // History 
         sendToRoku("History");
-
     }                                    
 
-    private void jlbCinemaxMouseClicked(java.awt.event.MouseEvent evt) {                                        
-        // Cinemax
-        sendToRoku("Cinemax");
-    }                                       
+    private void jlbPremier2MouseClicked(java.awt.event.MouseEvent evt) {                                         
+        // Premier
+        sendToRoku("Premier");
+    }                                        
 
     private void jlbDiscoveryMouseClicked(java.awt.event.MouseEvent evt) {                                          
         // Discovery
@@ -355,6 +417,16 @@ public class jRokuV extends javax.swing.JFrame {
         // Film & Arts
         sendToRoku("FilmArts");
     }                                         
+
+    private void jlbCinemax1MouseClicked(java.awt.event.MouseEvent evt) {                                         
+        // Cinemax
+        sendToRoku("Cinemax");
+    }                                        
+
+    private void jlbRTMouseClicked(java.awt.event.MouseEvent evt) {                                   
+        // TODO add your handling code here:
+        sendToRoku("RT");
+    }                                  
 
     /**
      * @param args the command line arguments
@@ -397,17 +469,19 @@ public class jRokuV extends javax.swing.JFrame {
     private javax.swing.JButton jbCargarCh;
     private javax.swing.JComboBox<String> jcbLista;
     private javax.swing.JLabel jlbCanal6;
-    private javax.swing.JLabel jlbCinemax;
+    private javax.swing.JLabel jlbCinemax1;
     private javax.swing.JLabel jlbDiscovery;
     private javax.swing.JLabel jlbEurofilms;
     private javax.swing.JLabel jlbHist;
     private javax.swing.JLabel jlbNatgeo;
     private javax.swing.JLabel jlbParamount;
+    private javax.swing.JLabel jlbPremier2;
+    private javax.swing.JLabel jlbRT;
     private javax.swing.JLabel jlbTnt;
     private javax.swing.JLabel jlbUniversal;
     // End of variables declaration                   
 
-    private void cargarCanales() {
+    private void cargarCanales(int type) {
         // Valida que la lista pre-existente sea diferente
         /*List<String> load = loadList();
         if (load != null) {
@@ -415,15 +489,47 @@ public class jRokuV extends javax.swing.JFrame {
             listas = load;
         } else {
             System.out.println("Usando lista reciente");*/
+        //hideAll();
         try {
-            URL url = new URL(Configs.mainUrl);
+            URL url = null;
+            switch (type) {
+                case 0:
+                    url = new URL(Configs.mainUrl);
+                    break;
+                case 1:
+                    url = new URL(Configs.geoMexUrl);
+                    break;
+                case 2:
+                    url = new URL(Configs.android3Url);
+                    break;
+            }
             URLConnection connection = url.openConnection();
+
             try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
                 String line;
                 while ((line = br.readLine()) != null) {
-                    if (line.contains(".m3u")) {
-                        System.out.println("Patron reconocido en: " + line);
-                        downloadM3U(line, listas);
+                    switch (type) {
+                        case 0:
+                            if (line.contains("lista.m3u") || line.contains("lista1.m3u")) {
+                                System.out.println("Patron reconocido en: " + line);
+                                showIfExists(line);
+                                downloadM3U(line, listas);
+                            }
+                            break;
+                        case 1:
+                            if (line.contains("geomex.m3u")) {
+                                System.out.println("Patron reconocido en: " + line);
+                                showIfExists(line);
+                                downloadM3U(line, listas);
+                            }
+                            break;
+                        case 2:
+                            if (line.contains("android3.m3u")) {
+                                System.out.println("Patron reconocido en: " + line);
+                                showIfExists(line);
+                                downloadM3U(line, listas);
+                            }
+                            break;
                     }
                 }
             }
@@ -431,11 +537,18 @@ public class jRokuV extends javax.swing.JFrame {
                 // Salva el listado en un fichero    
                 saveList();
             }
+            cargarCmbox();
         } catch (MalformedURLException ex) {
             Logger.getLogger(TecnoTVLF.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(TecnoTVLF.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    private void cargarCmbox() {
+        dcbm.addElement("Canal 6 - " + Configs.canal6);
+        dcbm.addElement("RT - " + Configs.RT);
+        jcbLista.setModel(dcbm);
     }
 
     private String doPOST(String url) {
@@ -471,6 +584,94 @@ public class jRokuV extends javax.swing.JFrame {
         }
     }
 
+    private String doGET(String url) {
+        try {
+            URL obj = new URL(url);
+            HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+            con.setRequestMethod("GET");
+            con.setDoInput(true);
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(con.getInputStream(), "utf-8"))) {
+                StringBuilder response = new StringBuilder();
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
+                return response.toString();
+            } catch (IOException ex) {
+                Logger.getLogger(jRokuV.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } catch (IOException ex) {
+            System.out.println(ex.getMessage());
+        }
+        return null;
+    }
+
+    private boolean isStreaming() {
+        String response = doGET(rokuUrl + Configs.paramSt);
+        if (response.contains("<is_live blocked=\"false\">true</is_live>")) {
+            return true;
+        }
+        System.out.println(response);
+        return false;
+    }
+
+    private void showIfExists(String value) {
+        jlbCanal6.setVisible(true);
+        jlbRT.setVisible(true);
+        if (value.contains("Cinemax")) {
+            jlbCinemax1.setVisible(true);
+        } else if (value.contains("Discovery")) {
+            jlbDiscovery.setVisible(true);
+        } else if (value.contains("History")) {
+            jlbHist.setVisible(true);
+        } else if (value.contains("Universal")) {
+            jlbUniversal.setVisible(true);
+        } else if (value.contains("Paramount")) {
+            jlbParamount.setVisible(true);
+        } else if (value.contains("TNT")) {
+            jlbTnt.setVisible(true);
+        } else if (value.contains("Films")) {
+            jlbEurofilms.setVisible(true);
+        } else if (value.contains("Premier")) {
+            jlbPremier2.setVisible(true);
+        } else if (value.contains("National")) {
+            jlbNatgeo.setVisible(true);
+        } else if (!value.contains("Cinemax")) {
+            jlbCinemax1.setVisible(false);
+        } else if (!value.contains("Discovery")) {
+            jlbDiscovery.setVisible(false);
+        } else if (!value.contains("History")) {
+            jlbHist.setVisible(false);
+        } else if (!value.contains("Universal")) {
+            jlbUniversal.setVisible(false);
+        } else if (!value.contains("Paramount")) {
+            jlbParamount.setVisible(false);
+        } else if (!value.contains("TNT")) {
+            jlbTnt.setVisible(false);
+        } else if (!value.contains("Films")) {
+            jlbEurofilms.setVisible(false);
+        } else if (!value.contains("Premier")) {
+            jlbPremier2.setVisible(false);
+        } else if (!value.contains("National")) {
+            jlbNatgeo.setVisible(false);
+        }
+    }
+
+    private void hideAll() {
+        jlbCinemax1.setVisible(false);
+        jlbDiscovery.setVisible(false);
+        jlbHist.setVisible(false);
+        jlbUniversal.setVisible(false);
+        jlbParamount.setVisible(false);
+        jlbTnt.setVisible(false);
+        jlbEurofilms.setVisible(false);
+        jlbPremier2.setVisible(false);
+        jlbNatgeo.setVisible(false);
+        jlbCanal6.setVisible(false);
+        jlbRT.setVisible(false);
+    }
+
     private void downloadM3U(String url, List<String> result) {
 
         try {
@@ -480,21 +681,28 @@ public class jRokuV extends javax.swing.JFrame {
             try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
                 String line;
                 while ((line = br.readLine()) != null) {
-                    // jlbCinemax, jlbDiscovery, jlbEurofilms, jlbHist, jlbNatgeo, jlbParamount, jlbTnt, jlbUniversal
-                    if (line.contains("History Channel") || line.contains("Discovery Channel") || line.contains("Film & Arts") || line.contains("National Geographic") || line.contains("Paramount HD") || line.contains("TNT HD") || line.contains("Studio Universal")) {
-                        //System.out.println(line);
+                    // jlbCinemax, jlbDiscovery, jlbEurofilms, jlbHist, jlbNatgeo, jlbParamount, jlbTnt, jlbUniversal, jlbPremier
+                    if (existeCanal(line)) {
+                        System.out.println("P-> " + line);
+                        String channelTitle = line.substring(line.indexOf(", ") + 2);
                         line = br.readLine();
                         if (line.indexOf("zonafilm") == -1) {
                             result.add(line);
-                            //System.out.println(line);
+                            if (debug) {
+                                System.out.println("Added: " + line);
+                                addToComboBox(channelTitle, line);
+                            }
                         }
                     }
                 }
             }
         } catch (MalformedURLException ex) {
-            Logger.getLogger(TecnoTVLF.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(TecnoTVLF.class
+                    .getName()).log(Level.SEVERE, null, ex);
+
         } catch (IOException ex) {
-            Logger.getLogger(TecnoTVLF.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(TecnoTVLF.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -508,15 +716,35 @@ public class jRokuV extends javax.swing.JFrame {
         return extracted;
     }
 
-    private boolean sonIguales(List<String> list) {
-        return listas.equals(list);
+    private String extractIP(String input) {
+
+        // Patrón para reconocer una dirección IP válida 0-255
+        String ipPattern
+                = "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+                + "\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+                + "\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+                + "\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)";
+
+        // Compilar el patrón en un objeto Pattern
+        Pattern pattern = Pattern.compile(ipPattern);
+
+        // Crear un objeto Matcher para la cadena de entrada
+        Matcher matcher = pattern.matcher(input);
+
+        // Buscar la primera ocurrencia de la dirección IP válida
+        if (matcher.find()) {
+            return matcher.group();
+        } else {
+            return null; // Si no se encuentra ninguna dirección IP válida
+        }
     }
 
     private void saveList() {
         File dbFile = new File("lists.db");
         try {
-            if(eliminarFichero(dbFile))
+            if (eliminarFichero(dbFile)) {
                 return;
+            }
             System.out.println("Guardando lista en: " + dbFile.getAbsolutePath());
             try (FileOutputStream fos = new FileOutputStream(dbFile)) {
                 for (String value : listas) {
@@ -530,13 +758,23 @@ public class jRokuV extends javax.swing.JFrame {
             System.err.println("Error al guardar la lista: " + ex.getMessage());
         }
     }
-    
-    public boolean esListaVieja(File dbFile){
+
+    public boolean esListaVieja(File dbFile) {
         long timeNow = System.currentTimeMillis();
         long modifiedFile = dbFile.lastModified();
-        if((timeNow - modifiedFile) > (5*60*1000)) // 5 min
+        if ((timeNow - modifiedFile) > (5 * 60 * 1000)) // 5 min
+        {
             return true;
+        }
         return false;
+    }
+
+    public void esperaNSegundos(int segundos) {
+        try {
+            Thread.sleep(segundos * 1000);
+        } catch (InterruptedException ex) {
+            System.out.println("InterruptException: " + ex.getMessage());
+        }
     }
 
     private List loadList() {
@@ -544,7 +782,7 @@ public class jRokuV extends javax.swing.JFrame {
             File dbFile = new File("lists.db");
             if (dbFile.exists()) {
                 System.out.println("DB File found on: " + dbFile.getAbsolutePath());
-                if(esListaVieja(dbFile)){
+                if (esListaVieja(dbFile)) {
                     System.out.println("La lista encontrada ya tiene cierto tiempo de creada, se procede a actualizar");
                     eliminarFichero(dbFile);
                 }
@@ -572,37 +810,176 @@ public class jRokuV extends javax.swing.JFrame {
         return null;
     }
 
-    private String findChannel(String channel) {
+    private String findChannel(String channel, int index) {
         String result = "";
+        if (debug) {
+            System.out.println("Canal solicitado: " + channel);
+            System.out.println("Probando índice: " + index);
+        }
         for (String chan : listas) {
+            if (debug) {
+                System.out.println("Elemento: " + chan);
+                System.out.println("Lista de Canal: " + Configs.listasCanales[selected]);
+            }
             if (channel.equalsIgnoreCase("Canal 6")) {
                 result = Configs.canal6;
                 break;
-            } else if (channel.equalsIgnoreCase("History") && chan.indexOf("a056&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("Cinemax") && chan.indexOf("a056&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("Discovery") && chan.indexOf("a054&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("NatGeo") && chan.indexOf("a02f&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("Paramount") && chan.indexOf("a075&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("Universal") && chan.indexOf("a06r&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("Tnt") && chan.indexOf("a05l&") != -1) {
-                result = chan;
-                break;
-            } else if (channel.equalsIgnoreCase("FilmArts") && chan.indexOf("a01f&") != -1) {
-                result = chan;
+            }
+            if (channel.equalsIgnoreCase("RT")) {
+                result = Configs.RT;
                 break;
             }
+            if (selected == 0) {
+                if (channel.equalsIgnoreCase("History")) {
+
+                    if (index == 0 && chan.indexOf("a056&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a01r&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Cinemax")) {
+                    if (index == 0 && chan.indexOf("a0bn&") != -1) {
+                        result = chan;
+                    }
+                } else if (channel.equalsIgnoreCase("Discovery")) {
+                    if (index == 0 && chan.indexOf("a054&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a0ar&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("NatGeo")) {
+                    if (index == 0 & chan.indexOf("a02f&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a05r&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Paramount")) {
+                    if (index == 0 && chan.indexOf("a03e&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a075&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Universal")) {
+                    if (index == 0 && chan.indexOf("a06r&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a02y&") != -1) { // a03f&
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Tnt")) {
+                    if (index == 0 && chan.indexOf("a05l&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a02b&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("FilmArts")) {
+                    if (index == 0 && chan.indexOf("a01f&") != -1) {
+                        result = chan;
+                    }
+                    if (index == 1 && chan.indexOf("a08t&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Premier")) {
+                    if (index == 0 && chan.indexOf("a053&") != -1) {
+                        result = chan;
+                    } else if (index == 1 && chan.indexOf("a054&") != -1) {
+                        result = chan;
+                    }
+                }
+            } else if (selected == 1) {
+                if (channel.equalsIgnoreCase("History")) {
+                    if (chan.indexOf("a005&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Cinemax")) {
+                    if (chan.indexOf("a01y") != -1) {
+                        result = chan;
+                    }
+                } else if (channel.equalsIgnoreCase("Discovery")) {
+                    if (chan.indexOf("a010&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("NatGeo")) {
+                    if (chan.indexOf("a004&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Paramount")) {
+                    if (chan.indexOf("a04n&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Universal")) {
+                    if (chan.indexOf("a00u&") != -1 || chan.indexOf("a04o&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Tnt")) {
+                    if (chan.indexOf("a00f&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Premier")) { // HBO2
+                    if (chan.indexOf("a04s&") != -1) {
+                        result = chan;
+                    }
+                }
+            } else if (selected == 2) {
+                if (channel.equalsIgnoreCase("History")) {
+                    if (chan.indexOf("a038") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("FilmArts")) {
+                    if (chan.indexOf("a00o&") != -1) {
+                        result = chan;
+                    }
+                } else if (channel.equalsIgnoreCase("Discovery")) {
+                    if (chan.indexOf("a01n&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("NatGeo")) {
+                    if (chan.indexOf("a01k&") != -1) {
+                        result = chan;
+                    } else if (chan.indexOf("a032&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Paramount")) {
+                    if (chan.indexOf("a01l&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Universal")) {
+                    if (chan.indexOf("a00k&") != -1) {
+                        result = chan;
+                    } else if (chan.indexOf("a01t&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("Tnt")) {
+                    if (chan.indexOf("a013&") != -1) {
+                        result = chan;
+                    }
+
+                } else if (channel.equalsIgnoreCase("SONY")) { // HBO2
+                    if (chan.indexOf("a04a&") != -1) {
+                        result = chan;
+                    }
+                }
+            }
+        }
+        if (debug) {
+            System.out.println("URL generada: " + result);
         }
         return result;
     }
@@ -611,8 +988,40 @@ public class jRokuV extends javax.swing.JFrame {
         //jComboBox1.getItemAt(jComboBox1.getSelectedIndex());
         try {
             StringBuilder sb = new StringBuilder();
-            sb.append(Configs.urlRoku).append(Configs.param).append(URLEncoder.encode(findChannel(chan), "utf-8")).append(Configs.param2);
+            if (debug) {
+                System.out.println("Llego URL: " + chan);
+            }
+            if (!(chan.contains("http") || chan.contains("HTTP"))) {
+                sb.append(rokuUrl).append(Configs.param).append(URLEncoder.encode(findChannel(chan, count), "utf-8")).append(Configs.param2);
+            } else {
+                sb.append(rokuUrl).append(Configs.param).append(URLEncoder.encode(chan, "utf-8")).append(Configs.param2);
+            }
             doPOST(sb.toString());
+            esperaNSegundos(10); // 10 segundos
+            boolean streaming = isStreaming();
+            if (debug) {
+                System.out.println("Count: " + count);
+                System.out.println("Streaming: " + streaming);
+            }
+            if (!streaming && count < 1) {
+                if (debug) {
+                    System.out.println("Error de buffering...El canal no está funcionando\n");
+                    //JOptionPane.showMessageDialog(rootPane, "El Canal no está funcionando", "Información", JOptionPane.INFORMATION_MESSAGE);
+                }
+                count++;
+                sendToRoku(chan);
+            } else if (streaming == true) {
+                if (debug) {
+                    System.out.println("Canal activo y transmitiendo!");
+                }
+                count = 0;
+            } else {
+                if (debug) {
+                    System.out.println("Detención por exceso de peticiones");
+                }
+                count = 0;
+            }
+
         } catch (UnsupportedEncodingException ex) {
             System.out.println("UnsupportedEncodingException: " + ex.getMessage());
         }
@@ -632,4 +1041,83 @@ public class jRokuV extends javax.swing.JFrame {
         return false;
     }
 
+    private String generadorHistoryAndroid(String chan) {
+        String mes = "";
+        int month = new Date().getMonth() + 1;
+        //http://clubtv.link/M105m/key4513/android3.php?c=a038&token=tecnotvlistasmayo
+        switch (month) {
+            case 1:
+                mes = "enero";
+                break;
+            case 2:
+                mes = "febrero";
+                break;
+            case 3:
+                mes = "marzo";
+                break;
+            case 4:
+                mes = "abril";
+                break;
+            case 5:
+                mes = "mayo";
+                break;
+            case 6:
+                mes = "junio";
+                break;
+            case 7:
+                mes = "julio";
+                break;
+            case 8:
+                mes = "agosto";
+                break;
+            case 9:
+                mes = "septiembre";
+                break;
+            case 10:
+                mes = "octubre";
+                break;
+            case 11:
+                mes = "noviembre";
+                break;
+            case 12:
+                mes = "diciembre";
+                break;
+        }
+        String tmpU = chan.substring(0, chan.indexOf("=") - 12) + "android3.php?c=a038";
+        String tmpL = chan.substring(chan.indexOf("&"), chan.lastIndexOf("tv") + 2) + "listas" + mes;
+        if (debug) {
+            System.out.println("Generada por algoritmo: " + tmpU + tmpL);
+            System.out.println("Deseada por el usuario: http://clubtv.link/M105m/key4513/android3.php?c=a038&token=tecnotvlistasmayo");
+        }
+        //System.exit(0);
+        return (tmpU + tmpL);
+    }
+
+    private boolean existeCanal(String line) {
+        Configs cfg = new Configs();
+        return cfg.channelExists(line);
+    }
+
+    private void addToComboBox(String channelTitle, String line) {
+        dcbm.addElement(channelTitle + " - " + line);
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        System.out.println("Pressed: " + e.getKeyChar());
+        if (e.isControlDown() && e.isShiftDown() && e.getKeyCode() == KeyEvent.VK_N) {
+            System.out.println("Ctrl + Shift + A presionado");
+            showSecretConf();
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+
+    }
 }
