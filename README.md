@@ -11,6 +11,7 @@ Sends channel to my Roku device.
 * Better UI.
 * An initial wizard for first time use.
 * Add more channels.
+* Create channels manually allowing you to upload a logo to identify it.
 * Add language support.
 * Keep the code clean and light.
  
